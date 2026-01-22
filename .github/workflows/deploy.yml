@@ -1,0 +1,90 @@
+name: Deploy to Lightsail
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build backend
+        working-directory: ./backend
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o server main.go
+
+      - name: Deploy to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "frontend/dist/*,backend/server"
+          target: "/tmp/deploy"
+          strip_components: 1
+
+      - name: Install and restart services
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Copy frontend files
+            sudo rm -rf /var/www/jones-county-xc/frontend/*
+            sudo cp -r /tmp/deploy/dist/* /var/www/jones-county-xc/frontend/
+
+            # Copy and restart backend
+            sudo cp /tmp/deploy/server /var/www/jones-county-xc/backend/
+            sudo chmod +x /var/www/jones-county-xc/backend/server
+
+            # Create systemd service if it doesn't exist
+            if [ ! -f /etc/systemd/system/jones-county-xc.service ]; then
+              sudo tee /etc/systemd/system/jones-county-xc.service > /dev/null <<EOF
+            [Unit]
+            Description=Jones County XC Backend
+            After=network.target
+
+            [Service]
+            Type=simple
+            User=ubuntu
+            WorkingDirectory=/var/www/jones-county-xc/backend
+            ExecStart=/var/www/jones-county-xc/backend/server
+            Restart=always
+            RestartSec=5
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+              sudo systemctl daemon-reload
+              sudo systemctl enable jones-county-xc
+            fi
+
+            # Restart backend service
+            sudo systemctl restart jones-county-xc
+
+            # Clean up
+            rm -rf /tmp/deploy
+
+            echo "Deployment complete!"
