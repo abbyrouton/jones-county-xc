@@ -1,0 +1,28 @@
+CREATE TABLE athletes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    grade INT NOT NULL,
+    personal_record VARCHAR(10),
+    events VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE meets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    date DATE NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE results (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    athlete_id INT NOT NULL,
+    meet_id INT NOT NULL,
+    time VARCHAR(10) NOT NULL,
+    place INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (athlete_id) REFERENCES athletes(id) ON DELETE CASCADE,
+    FOREIGN KEY (meet_id) REFERENCES meets(id) ON DELETE CASCADE
+);

@@ -5,6 +5,7 @@ interface Athlete {
   name: string
   grade: number
   personalRecord: string
+  events: string
 }
 
 async function fetchAthletes(): Promise<Athlete[]> {
