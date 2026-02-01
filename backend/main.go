@@ -1,37 +1,43 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
-type HealthResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
+type Athlete struct {
+	Name           string `json:"name"`
+	Grade          int    `json:"grade"`
+	PersonalRecord string `json:"personalRecord"`
 }
 
 func main() {
-	http.HandleFunc("/health", healthHandler)
-	http.HandleFunc("/api/hello", helloHandler)
+	r := gin.Default()
 
-	log.Println("Backend server starting on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(HealthResponse{
-		Status:  "ok",
-		Message: "Backend is running",
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "ok",
+			"message": "Backend is running",
+		})
 	})
-}
 
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Hello from Jones County XC backend!",
+	r.GET("/api/hello", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Hello from Jones County XC backend!",
+		})
 	})
+
+	r.GET("/api/athletes", func(c *gin.Context) {
+		athletes := []Athlete{
+			{Name: "Emma Johnson", Grade: 11, PersonalRecord: "18:42"},
+			{Name: "Lucas Martinez", Grade: 10, PersonalRecord: "16:55"},
+			{Name: "Sophia Chen", Grade: 12, PersonalRecord: "19:15"},
+			{Name: "Ethan Williams", Grade: 9, PersonalRecord: "17:30"},
+			{Name: "Olivia Brown", Grade: 11, PersonalRecord: "20:05"},
+		}
+		c.JSON(http.StatusOK, athletes)
+	})
+
+	r.Run(":8080")
 }

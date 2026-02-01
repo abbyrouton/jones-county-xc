@@ -1,3 +1,5 @@
+import AthleteList from './AthleteList'
+
 function App() {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -5,9 +7,7 @@ function App() {
         <h1 className="text-4xl font-bold text-gray-800 mb-4">
           Welcome to Jones County XC
         </h1>
-        <p className="text-gray-600">
-          Jones County XC
-        </p>
+        <AthleteList />
       </div>
     </div>
   )
