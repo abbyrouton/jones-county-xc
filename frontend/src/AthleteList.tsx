@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
 interface Athlete {
   id: number
@@ -7,33 +7,24 @@ interface Athlete {
   personalRecord: string
 }
 
+async function fetchAthletes(): Promise<Athlete[]> {
+  const res = await fetch('/api/athletes')
+  if (!res.ok) throw new Error('Failed to fetch athletes')
+  return res.json()
+}
+
 export default function AthleteList() {
-  const [athletes, setAthletes] = useState<Athlete[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: athletes, isLoading, error } = useQuery({
+    queryKey: ['athletes'],
+    queryFn: fetchAthletes,
+  })
 
-  useEffect(() => {
-    fetch('/api/athletes')
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch athletes')
-        return res.json()
-      })
-      .then(data => {
-        setAthletes(data)
-        setLoading(false)
-      })
-      .catch(err => {
-        setError(err.message)
-        setLoading(false)
-      })
-  }, [])
-
-  if (loading) return <p>Loading athletes...</p>
-  if (error) return <p>Error: {error}</p>
+  if (isLoading) return <p>Loading athletes...</p>
+  if (error) return <p>Error: {error.message}</p>
 
   return (
     <ul>
-      {athletes.map((athlete) => (
+      {athletes?.map((athlete) => (
         <li key={athlete.id}>
           {athlete.name} - Grade {athlete.grade} - PR: {athlete.personalRecord}
         </li>
