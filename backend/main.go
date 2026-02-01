@@ -40,11 +40,31 @@ type ResultResponse struct {
 	Place     int32  `json:"place"`
 }
 
+type MeetResultResponse struct {
+	ID           int32  `json:"id"`
+	Time         string `json:"time"`
+	Place        int32  `json:"place"`
+	AthleteID    int32  `json:"athleteId"`
+	AthleteName  string `json:"athleteName"`
+	AthleteGrade int32  `json:"athleteGrade"`
+}
+
 type CreateResultRequest struct {
 	AthleteID int32  `json:"athleteId" binding:"required"`
 	MeetID    int32  `json:"meetId" binding:"required"`
 	Time      string `json:"time" binding:"required"`
 	Place     int32  `json:"place" binding:"required"`
+}
+
+type TopTimeResponse struct {
+	ID          int32  `json:"id"`
+	Time        string `json:"time"`
+	Place       int32  `json:"place"`
+	AthleteID   int32  `json:"athleteId"`
+	AthleteName string `json:"athleteName"`
+	MeetID      int32  `json:"meetId"`
+	MeetName    string `json:"meetName"`
+	MeetDate    string `json:"meetDate"`
 }
 
 func main() {
@@ -145,7 +165,7 @@ func main() {
 		c.JSON(http.StatusOK, response)
 	})
 
-	// Get results for a specific meet
+	// Get results for a specific meet (with athlete names)
 	r.GET("/api/meets/:id/results", func(c *gin.Context) {
 		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
@@ -153,20 +173,21 @@ func main() {
 			return
 		}
 
-		results, err := queries.GetResultsByMeetID(context.Background(), int32(id))
+		results, err := queries.GetMeetResults(context.Background(), int32(id))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		response := make([]ResultResponse, len(results))
+		response := make([]MeetResultResponse, len(results))
 		for i, r := range results {
-			response[i] = ResultResponse{
-				ID:        r.ID,
-				AthleteID: r.AthleteID,
-				MeetID:    r.MeetID,
-				Time:      r.Time,
-				Place:     r.Place,
+			response[i] = MeetResultResponse{
+				ID:           r.ID,
+				Time:         r.Time,
+				Place:        r.Place,
+				AthleteID:    r.AthleteID,
+				AthleteName:  r.AthleteName,
+				AthleteGrade: r.AthleteGrade,
 			}
 		}
 		c.JSON(http.StatusOK, response)
@@ -196,6 +217,30 @@ func main() {
 			"id":      id,
 			"message": "Result created successfully",
 		})
+	})
+
+	// Get top 10 fastest times
+	r.GET("/api/top-times", func(c *gin.Context) {
+		times, err := queries.GetTopTimes(context.Background())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		response := make([]TopTimeResponse, len(times))
+		for i, t := range times {
+			response[i] = TopTimeResponse{
+				ID:          t.ID,
+				Time:        t.Time,
+				Place:       t.Place,
+				AthleteID:   t.AthleteID,
+				AthleteName: t.AthleteName,
+				MeetID:      t.MeetID,
+				MeetName:    t.MeetName,
+				MeetDate:    t.MeetDate.Format("2006-01-02"),
+			}
+		}
+		c.JSON(http.StatusOK, response)
 	})
 
 	r.Run(":8080")

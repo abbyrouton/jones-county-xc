@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 const createResult = `-- name: CreateResult :execresult
@@ -123,6 +124,53 @@ func (q *Queries) GetAthleteByID(ctx context.Context, id int32) (Athlete, error)
 	return i, err
 }
 
+const getMeetResults = `-- name: GetMeetResults :many
+SELECT r.id, r.time, r.place, a.id AS athlete_id, a.name AS athlete_name, a.grade AS athlete_grade
+FROM results r
+JOIN athletes a ON r.athlete_id = a.id
+WHERE r.meet_id = ?
+ORDER BY r.place
+`
+
+type GetMeetResultsRow struct {
+	ID           int32
+	Time         string
+	Place        int32
+	AthleteID    int32
+	AthleteName  string
+	AthleteGrade int32
+}
+
+func (q *Queries) GetMeetResults(ctx context.Context, meetID int32) ([]GetMeetResultsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getMeetResults, meetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMeetResultsRow
+	for rows.Next() {
+		var i GetMeetResultsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Time,
+			&i.Place,
+			&i.AthleteID,
+			&i.AthleteName,
+			&i.AthleteGrade,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getResultsByMeetID = `-- name: GetResultsByMeetID :many
 SELECT r.id, r.athlete_id, r.meet_id, r.time, r.place, r.created_at
 FROM results r
@@ -146,6 +194,58 @@ func (q *Queries) GetResultsByMeetID(ctx context.Context, meetID int32) ([]Resul
 			&i.Time,
 			&i.Place,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTopTimes = `-- name: GetTopTimes :many
+SELECT r.id, r.time, r.place, a.id AS athlete_id, a.name AS athlete_name, m.id AS meet_id, m.name AS meet_name, m.date AS meet_date
+FROM results r
+JOIN athletes a ON r.athlete_id = a.id
+JOIN meets m ON r.meet_id = m.id
+ORDER BY r.time ASC
+LIMIT 10
+`
+
+type GetTopTimesRow struct {
+	ID          int32
+	Time        string
+	Place       int32
+	AthleteID   int32
+	AthleteName string
+	MeetID      int32
+	MeetName    string
+	MeetDate    time.Time
+}
+
+func (q *Queries) GetTopTimes(ctx context.Context) ([]GetTopTimesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getTopTimes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTopTimesRow
+	for rows.Next() {
+		var i GetTopTimesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Time,
+			&i.Place,
+			&i.AthleteID,
+			&i.AthleteName,
+			&i.MeetID,
+			&i.MeetName,
+			&i.MeetDate,
 		); err != nil {
 			return nil, err
 		}
