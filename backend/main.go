@@ -7,6 +7,7 @@ import (
 )
 
 type Athlete struct {
+	ID             int    `json:"id"`
 	Name           string `json:"name"`
 	Grade          int    `json:"grade"`
 	PersonalRecord string `json:"personalRecord"`
@@ -30,11 +31,11 @@ func main() {
 
 	r.GET("/api/athletes", func(c *gin.Context) {
 		athletes := []Athlete{
-			{Name: "Emma Johnson", Grade: 11, PersonalRecord: "18:42"},
-			{Name: "Lucas Martinez", Grade: 10, PersonalRecord: "16:55"},
-			{Name: "Sophia Chen", Grade: 12, PersonalRecord: "19:15"},
-			{Name: "Ethan Williams", Grade: 9, PersonalRecord: "17:30"},
-			{Name: "Olivia Brown", Grade: 11, PersonalRecord: "20:05"},
+			{ID: 1, Name: "Emma Johnson", Grade: 11, PersonalRecord: "18:42"},
+			{ID: 2, Name: "Lucas Martinez", Grade: 10, PersonalRecord: "16:55"},
+			{ID: 3, Name: "Sophia Chen", Grade: 12, PersonalRecord: "19:15"},
+			{ID: 4, Name: "Ethan Williams", Grade: 9, PersonalRecord: "17:30"},
+			{ID: 5, Name: "Olivia Brown", Grade: 11, PersonalRecord: "20:05"},
 		}
 		c.JSON(http.StatusOK, athletes)
 	})

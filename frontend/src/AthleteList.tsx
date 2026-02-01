@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 
 interface Athlete {
+  id: number
   name: string
   grade: number
   personalRecord: string
@@ -32,8 +33,8 @@ export default function AthleteList() {
 
   return (
     <ul>
-      {athletes.map((athlete, index) => (
-        <li key={index}>
+      {athletes.map((athlete) => (
+        <li key={athlete.id}>
           {athlete.name} - Grade {athlete.grade} - PR: {athlete.personalRecord}
         </li>
       ))}
