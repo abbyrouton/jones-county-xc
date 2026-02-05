@@ -4,6 +4,12 @@ frontend/node_modules/
 # Build outputs
 frontend/dist/
 backend/bin/
+backend/server
+backend/server-linux
+backend/jones-xc-server
+
+# Deployment (contains secrets)
+backend/jones-xc.service
 
 # IDE
 .idea/
