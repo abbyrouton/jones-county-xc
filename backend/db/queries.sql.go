@@ -11,6 +11,48 @@ import (
 	"time"
 )
 
+const createAthlete = `-- name: CreateAthlete :execresult
+INSERT INTO athletes (name, grade, personal_record, events)
+VALUES (?, ?, ?, ?)
+`
+
+type CreateAthleteParams struct {
+	Name           string
+	Grade          int32
+	PersonalRecord sql.NullString
+	Events         sql.NullString
+}
+
+func (q *Queries) CreateAthlete(ctx context.Context, arg CreateAthleteParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, createAthlete,
+		arg.Name,
+		arg.Grade,
+		arg.PersonalRecord,
+		arg.Events,
+	)
+}
+
+const createMeet = `-- name: CreateMeet :execresult
+INSERT INTO meets (name, date, location, description)
+VALUES (?, ?, ?, ?)
+`
+
+type CreateMeetParams struct {
+	Name        string
+	Date        time.Time
+	Location    string
+	Description sql.NullString
+}
+
+func (q *Queries) CreateMeet(ctx context.Context, arg CreateMeetParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, createMeet,
+		arg.Name,
+		arg.Date,
+		arg.Location,
+		arg.Description,
+	)
+}
+
 const createResult = `-- name: CreateResult :execresult
 INSERT INTO results (athlete_id, meet_id, time, place)
 VALUES (?, ?, ?, ?)
@@ -30,6 +72,33 @@ func (q *Queries) CreateResult(ctx context.Context, arg CreateResultParams) (sql
 		arg.Time,
 		arg.Place,
 	)
+}
+
+const deleteAthlete = `-- name: DeleteAthlete :exec
+DELETE FROM athletes WHERE id = ?
+`
+
+func (q *Queries) DeleteAthlete(ctx context.Context, id int32) error {
+	_, err := q.db.ExecContext(ctx, deleteAthlete, id)
+	return err
+}
+
+const deleteMeet = `-- name: DeleteMeet :exec
+DELETE FROM meets WHERE id = ?
+`
+
+func (q *Queries) DeleteMeet(ctx context.Context, id int32) error {
+	_, err := q.db.ExecContext(ctx, deleteMeet, id)
+	return err
+}
+
+const deleteResult = `-- name: DeleteResult :exec
+DELETE FROM results WHERE id = ?
+`
+
+func (q *Queries) DeleteResult(ctx context.Context, id int32) error {
+	_, err := q.db.ExecContext(ctx, deleteResult, id)
+	return err
 }
 
 const getAllAthletes = `-- name: GetAllAthletes :many
@@ -258,4 +327,79 @@ func (q *Queries) GetTopTimes(ctx context.Context) ([]GetTopTimesRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateAthlete = `-- name: UpdateAthlete :exec
+UPDATE athletes
+SET name = ?, grade = ?, personal_record = ?, events = ?
+WHERE id = ?
+`
+
+type UpdateAthleteParams struct {
+	Name           string
+	Grade          int32
+	PersonalRecord sql.NullString
+	Events         sql.NullString
+	ID             int32
+}
+
+func (q *Queries) UpdateAthlete(ctx context.Context, arg UpdateAthleteParams) error {
+	_, err := q.db.ExecContext(ctx, updateAthlete,
+		arg.Name,
+		arg.Grade,
+		arg.PersonalRecord,
+		arg.Events,
+		arg.ID,
+	)
+	return err
+}
+
+const updateMeet = `-- name: UpdateMeet :exec
+UPDATE meets
+SET name = ?, date = ?, location = ?, description = ?
+WHERE id = ?
+`
+
+type UpdateMeetParams struct {
+	Name        string
+	Date        time.Time
+	Location    string
+	Description sql.NullString
+	ID          int32
+}
+
+func (q *Queries) UpdateMeet(ctx context.Context, arg UpdateMeetParams) error {
+	_, err := q.db.ExecContext(ctx, updateMeet,
+		arg.Name,
+		arg.Date,
+		arg.Location,
+		arg.Description,
+		arg.ID,
+	)
+	return err
+}
+
+const updateResult = `-- name: UpdateResult :exec
+UPDATE results
+SET athlete_id = ?, meet_id = ?, time = ?, place = ?
+WHERE id = ?
+`
+
+type UpdateResultParams struct {
+	AthleteID int32
+	MeetID    int32
+	Time      string
+	Place     int32
+	ID        int32
+}
+
+func (q *Queries) UpdateResult(ctx context.Context, arg UpdateResultParams) error {
+	_, err := q.db.ExecContext(ctx, updateResult,
+		arg.AthleteID,
+		arg.MeetID,
+		arg.Time,
+		arg.Place,
+		arg.ID,
+	)
+	return err
 }
