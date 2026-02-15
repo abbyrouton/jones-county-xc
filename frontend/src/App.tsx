@@ -1,5 +1,6 @@
 import AthleteList from './AthleteList'
 import TodayDate from './TodayDate'
+import UpcomingMeets from './UpcomingMeets'
 
 function App() {
   return (
@@ -18,7 +19,8 @@ function App() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto py-8 px-4">
+      <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+        <UpcomingMeets />
         <AthleteList />
       </div>
     </div>
