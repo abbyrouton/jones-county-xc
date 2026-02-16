@@ -1,29 +1,63 @@
-import AthleteList from './AthleteList'
-import TodayDate from './TodayDate'
-import UpcomingMeets from './UpcomingMeets'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import Navbar from './Navbar'
+import HomePage from './pages/HomePage'
+import AthletesPage from './pages/AthletesPage'
+import ResultsPage from './pages/ResultsPage'
+import TopTimesPage from './pages/TopTimesPage'
+
+// Component to handle focus and title on route change
+function RouteChangeHandler() {
+  const location = useLocation()
+  const isFirstRender = useRef(true)
+
+  useEffect(() => {
+    // Update page title based on route
+    const titles: Record<string, string> = {
+      '/': 'Home - Jones County Cross Country',
+      '/athletes': 'Athletes - Jones County Cross Country',
+      '/results': 'Results - Jones County Cross Country',
+      '/top-times': 'Top Times - Jones County Cross Country',
+    }
+    document.title = titles[location.pathname] || 'Jones County Cross Country'
+
+    // Only move focus to main content on navigation (not initial page load)
+    // This lets keyboard users Tab through navbar first on initial load
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+    } else {
+      const main = document.getElementById('main-content')
+      if (main) {
+        main.focus()
+      }
+    }
+  }, [location.pathname])
+
+  return null
+}
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Welcome Banner */}
-      <div className="bg-green-800 text-white py-8 px-4 shadow-lg">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl font-bold mb-2 text-yellow-400">
-            Welcome to Jones County Cross Country
-          </h1>
-          <p className="text-xl text-green-100">
-            Home of the Greyhounds
-          </p>
-          <TodayDate />
-        </div>
-      </div>
+    <BrowserRouter>
+      <div className="min-h-screen bg-gray-100">
+        {/* Skip to main content link */}
+        <a
+          href="#main-content"
+          className="absolute left-4 top-4 z-[100] bg-white px-4 py-2 rounded-lg shadow-lg text-[#16a34a] font-semibold -translate-y-full focus:translate-y-0 transition-transform focus:ring-2 focus:ring-[#16a34a] focus:outline-none"
+        >
+          Skip to main content
+        </a>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
-        <UpcomingMeets />
-        <AthleteList />
+        <RouteChangeHandler />
+        <Navbar />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/athletes" element={<AthletesPage />} />
+          <Route path="/results" element={<ResultsPage />} />
+          <Route path="/top-times" element={<TopTimesPage />} />
+        </Routes>
       </div>
-    </div>
+    </BrowserRouter>
   )
 }
 

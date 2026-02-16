@@ -7,7 +7,7 @@ export default function TodayDate() {
   })
 
   return (
-    <p className="text-green-200 text-sm mt-2">
+    <p className="text-green-100/80 text-sm mt-4 font-medium">
       {today}
     </p>
   )
