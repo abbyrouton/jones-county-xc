@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -8,6 +8,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+
+interface NewAthlete {
+  name: string
+  grade: number
+  personalRecord: string
+  events: string
+}
+
+async function createAthlete(athlete: NewAthlete): Promise<Athlete> {
+  const res = await fetch('/api/athletes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(athlete),
+  })
+  if (!res.ok) throw new Error('Failed to create athlete')
+  return res.json()
+}
 
 // Handle arrow key navigation between cards
 function handleArrowNavigation(e: React.KeyboardEvent<HTMLElement>) {
@@ -121,19 +138,163 @@ const gradeLabels: Record<number, string> = {
   12: 'Seniors'
 }
 
+function AddAthleteForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: (name: string) => void }) {
+  const queryClient = useQueryClient()
+  const [formData, setFormData] = useState<NewAthlete>({
+    name: '',
+    grade: 9,
+    personalRecord: '',
+    events: '',
+  })
+
+  const mutation = useMutation({
+    mutationFn: createAthlete,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['athletes'] })
+      onSuccess(data.name)
+      onClose()
+    },
+  })
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    mutation.mutate(formData)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="add-athlete-title">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+        <h3 id="add-athlete-title" className="text-xl font-bold text-gray-900 mb-4">Add New Athlete</h3>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input
+              id="name"
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a] outline-none"
+              placeholder="Enter athlete name"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="grade" className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+            <select
+              id="grade"
+              required
+              value={formData.grade}
+              onChange={(e) => setFormData({ ...formData, grade: Number(e.target.value) })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a] outline-none"
+            >
+              <option value={9}>9th Grade (Freshman)</option>
+              <option value={10}>10th Grade (Sophomore)</option>
+              <option value={11}>11th Grade (Junior)</option>
+              <option value={12}>12th Grade (Senior)</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="personalRecord" className="block text-sm font-medium text-gray-700 mb-1">Personal Record</label>
+            <input
+              id="personalRecord"
+              type="text"
+              required
+              value={formData.personalRecord}
+              onChange={(e) => setFormData({ ...formData, personalRecord: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a] outline-none"
+              placeholder="e.g., 18:30"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="events" className="block text-sm font-medium text-gray-700 mb-1">Events</label>
+            <input
+              id="events"
+              type="text"
+              value={formData.events}
+              onChange={(e) => setFormData({ ...formData, events: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a] outline-none"
+              placeholder="e.g., 5K, 3200m"
+            />
+          </div>
+
+          {mutation.error && (
+            <p className="text-red-500 text-sm" role="alert">{mutation.error.message}</p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+              disabled={mutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-[#16a34a] hover:bg-[#15803d] text-white"
+              disabled={mutation.isPending}
+            >
+              {mutation.isPending ? 'Saving...' : 'Add Athlete'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function AthleteList() {
   const [raceCategory, setRaceCategory] = useState<string>('all')
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const { data: athletes, isLoading, error } = useQuery({
     queryKey: ['athletes'],
     queryFn: fetchAthletes,
   })
 
+  function handleAddSuccess(name: string) {
+    setSuccessMessage(`${name} has been added successfully!`)
+    setTimeout(() => setSuccessMessage(null), 4000)
+  }
+
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6" role="status" aria-live="polite">
-        <p className="text-gray-500 text-center">Loading athletes...</p>
-      </div>
+      <section className="bg-white rounded-2xl shadow-lg p-6 sm:p-8" role="status" aria-live="polite" aria-label="Loading athletes">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="h-9 w-48 bg-gray-200 rounded-lg animate-pulse" />
+          <div className="h-10 w-48 bg-gray-200 rounded-lg animate-pulse" />
+        </div>
+        <div className="space-y-6">
+          {[1, 2].map((group) => (
+            <div key={group}>
+              <div className="h-8 w-32 bg-gray-200 rounded-full animate-pulse mb-3" />
+              <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((card) => (
+                  <div key={card} className="bg-gray-50 border border-gray-100 rounded-xl p-5">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-6 w-16 bg-gray-200 rounded-full animate-pulse" />
+                    </div>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="h-8 w-20 bg-gray-200 rounded-lg animate-pulse" />
+                      <div className="h-5 w-16 bg-gray-200 rounded animate-pulse" />
+                    </div>
+                    <div className="h-9 w-full bg-gray-200 rounded-lg animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <span className="sr-only">Loading athletes...</span>
+      </section>
     )
   }
 
@@ -163,24 +324,43 @@ export default function AthleteList() {
           ? 'No athletes found for this event.'
           : `Showing ${filteredAthletes.length} athletes${raceCategory !== 'all' ? ` for ${raceCategory}` : ''}.`}
       </div>
+      {showAddForm && <AddAthleteForm onClose={() => setShowAddForm(false)} onSuccess={handleAddSuccess} />}
+
+      {successMessage && (
+        <div className="fixed bottom-4 right-4 bg-[#16a34a] text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in z-50" role="status" aria-live="polite">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {successMessage}
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h2 id="athletes-heading" className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
           Our <span className="text-[#16a34a]">Athletes</span>
         </h2>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="race-category" className="sr-only">Filter by event</label>
-          <Select value={raceCategory} onValueChange={setRaceCategory}>
-            <SelectTrigger id="race-category" className="w-full sm:w-48" aria-label="Filter athletes by event">
-              <SelectValue placeholder="Select category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Events</SelectItem>
-              <SelectItem value="5k">5K</SelectItem>
-              <SelectItem value="3200m">3200m</SelectItem>
-              <SelectItem value="1600m">1600m</SelectItem>
-              <SelectItem value="800m">800m</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => setShowAddForm(true)}
+            className="bg-[#16a34a] hover:bg-[#15803d] text-white"
+          >
+            + Add Athlete
+          </Button>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="race-category" className="sr-only">Filter by event</label>
+            <Select value={raceCategory} onValueChange={setRaceCategory}>
+              <SelectTrigger id="race-category" className="w-full sm:w-48" aria-label="Filter athletes by event">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Events</SelectItem>
+                <SelectItem value="5k">5K</SelectItem>
+                <SelectItem value="3200m">3200m</SelectItem>
+                <SelectItem value="1600m">1600m</SelectItem>
+                <SelectItem value="800m">800m</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
       {filteredAthletes.length === 0 ? (

@@ -26,29 +26,66 @@ function formatDate(dateString: string): string {
 }
 
 export default function TopTimes() {
-  const { data: topTimes, isLoading, error } = useQuery({
+  const { data: topTimes, isLoading, error, refetch } = useQuery({
     queryKey: ['top-times'],
     queryFn: fetchTopTimes,
   })
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6" role="status" aria-live="polite">
-        <p className="text-gray-500 text-center">Loading top times...</p>
-      </div>
+      <section className="bg-white rounded-2xl shadow-lg p-6 sm:p-8" role="status" aria-live="polite" aria-label="Loading top times">
+        <div className="h-9 w-40 bg-gray-200 rounded-lg animate-pulse mb-6" />
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-2"><div className="h-4 w-12 bg-gray-200 rounded animate-pulse" /></th>
+                <th className="text-left py-3 px-2"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></th>
+                <th className="text-left py-3 px-2"><div className="h-4 w-12 bg-gray-200 rounded animate-pulse" /></th>
+                <th className="text-left py-3 px-2"><div className="h-4 w-12 bg-gray-200 rounded animate-pulse" /></th>
+                <th className="text-left py-3 px-2"><div className="h-4 w-12 bg-gray-200 rounded animate-pulse" /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
+                <tr key={row} className="border-b border-gray-100">
+                  <td className="py-3 px-2"><div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" /></td>
+                  <td className="py-3 px-2"><div className="h-5 w-28 bg-gray-200 rounded animate-pulse" /></td>
+                  <td className="py-3 px-2"><div className="h-6 w-14 bg-gray-200 rounded animate-pulse" /></td>
+                  <td className="py-3 px-2"><div className="h-5 w-24 bg-gray-200 rounded animate-pulse" /></td>
+                  <td className="py-3 px-2"><div className="h-5 w-20 bg-gray-200 rounded animate-pulse" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <span className="sr-only">Loading top times...</span>
+      </section>
     )
   }
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6" role="alert">
-        <p className="text-red-500 text-center">Error: {error.message}</p>
+      <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 text-center" role="alert">
+        <div className="text-red-500 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p className="font-semibold">Failed to load top times</p>
+          <p className="text-sm text-gray-500 mt-1">{error.message}</p>
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="px-4 py-2 bg-[#16a34a] text-white rounded-lg font-semibold hover:bg-[#15803d] transition-colors focus:ring-2 focus:ring-[#16a34a] focus:ring-offset-2 focus:outline-none"
+        >
+          Try Again
+        </button>
       </div>
     )
   }
 
   return (
-    <section id="top-times" aria-labelledby="top-times-heading" className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+    <section id="top-times" aria-labelledby="top-times-heading" className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 animate-fade-in">
       <h2 id="top-times-heading" className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-6 tracking-tight">
         Top <span className="text-[#16a34a]">Times</span>
       </h2>
@@ -72,7 +109,8 @@ export default function TopTimes() {
               {topTimes.map((time, index) => (
                 <tr
                   key={time.id}
-                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index < 3 ? 'bg-yellow-50/50' : ''}`}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors animate-fade-in-row ${index < 3 ? 'bg-yellow-50/50' : ''}`}
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <td className="py-3 px-2">
                     <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${

@@ -64,9 +64,14 @@ export default function Results() {
 
   if (meetsLoading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6" role="status" aria-live="polite">
-        <p className="text-gray-500 text-center">Loading meets...</p>
-      </div>
+      <section className="bg-white rounded-2xl shadow-lg p-6 sm:p-8" role="status" aria-live="polite" aria-label="Loading meets">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="h-9 w-48 bg-gray-200 rounded-lg animate-pulse" />
+          <div className="h-10 w-64 bg-gray-200 rounded-lg animate-pulse" />
+        </div>
+        <div className="h-20 w-full bg-gray-100 rounded-lg animate-pulse" />
+        <span className="sr-only">Loading meets...</span>
+      </section>
     )
   }
 
@@ -97,7 +102,34 @@ export default function Results() {
       {!selectedMeetId ? (
         <p className="text-gray-500 text-center py-8">Select a meet to view results.</p>
       ) : resultsLoading ? (
-        <p className="text-gray-500 text-center py-8" role="status" aria-live="polite">Loading results...</p>
+        <div role="status" aria-live="polite" aria-label="Loading results">
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+            <div className="h-5 w-48 bg-gray-200 rounded animate-pulse" />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-2"><div className="h-4 w-12 bg-gray-200 rounded animate-pulse" /></th>
+                  <th className="text-left py-3 px-2"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></th>
+                  <th className="text-left py-3 px-2"><div className="h-4 w-14 bg-gray-200 rounded animate-pulse" /></th>
+                  <th className="text-left py-3 px-2"><div className="h-4 w-12 bg-gray-200 rounded animate-pulse" /></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5].map((row) => (
+                  <tr key={row} className="border-b border-gray-100">
+                    <td className="py-3 px-2"><div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" /></td>
+                    <td className="py-3 px-2"><div className="h-5 w-28 bg-gray-200 rounded animate-pulse" /></td>
+                    <td className="py-3 px-2"><div className="h-6 w-16 bg-gray-200 rounded-full animate-pulse" /></td>
+                    <td className="py-3 px-2"><div className="h-6 w-14 bg-gray-200 rounded animate-pulse" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <span className="sr-only">Loading results...</span>
+        </div>
       ) : !results || results.length === 0 ? (
         <p className="text-gray-500 text-center py-8">No results recorded for this meet.</p>
       ) : (
