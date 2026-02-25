@@ -5,6 +5,9 @@ import HomePage from './pages/HomePage'
 import AthletesPage from './pages/AthletesPage'
 import ResultsPage from './pages/ResultsPage'
 import TopTimesPage from './pages/TopTimesPage'
+import { LoginPage } from './pages/LoginPage'
+import { AdminDashboard } from './pages/AdminDashboard'
+import { ProtectedRoute } from './components/ProtectedRoute'
 
 // Component to handle focus and title on route change
 function RouteChangeHandler() {
@@ -18,6 +21,8 @@ function RouteChangeHandler() {
       '/athletes': 'Athletes - Jones County Cross Country',
       '/results': 'Results - Jones County Cross Country',
       '/top-times': 'Top Times - Jones County Cross Country',
+      '/login': 'Admin Login - Jones County Cross Country',
+      '/admin': 'Admin Dashboard - Jones County Cross Country',
     }
     document.title = titles[location.pathname] || 'Jones County Cross Country'
 
@@ -55,6 +60,15 @@ function App() {
           <Route path="/athletes" element={<AthletesPage />} />
           <Route path="/results" element={<ResultsPage />} />
           <Route path="/top-times" element={<TopTimesPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </div>
     </BrowserRouter>

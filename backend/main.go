@@ -10,10 +10,12 @@ import (
 	"strconv"
 	"time"
 
+	"jones-county-xc/backend/auth"
 	"jones-county-xc/backend/db"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 )
 
 var queries *db.Queries
@@ -96,6 +98,16 @@ type AllResultResponse struct {
 	MeetDate     string `json:"meetDate"`
 }
 
+type LoginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type LoginResponse struct {
+	Token     string `json:"token"`
+	ExpiresIn int    `json:"expiresIn"`
+}
+
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -104,6 +116,11 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
+	// Load environment variables from .env file
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found, using environment variables")
+	}
+
 	dbHost := getEnv("DB_HOST", "127.0.0.1")
 	dbUser := getEnv("DB_USER", "root")
 	dbPassword := getEnv("DB_PASSWORD", "")
@@ -135,6 +152,36 @@ func main() {
 	r.GET("/api/hello", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Hello from Jones County XC backend!",
+		})
+	})
+
+	// Login endpoint
+	r.POST("/api/auth/login", func(c *gin.Context) {
+		var req LoginRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Verify credentials against environment variables
+		adminUsername := getEnv("ADMIN_USERNAME", "admin")
+		adminPassword := getEnv("ADMIN_PASSWORD", "")
+
+		if req.Username != adminUsername || req.Password != adminPassword {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			return
+		}
+
+		// Generate JWT token
+		token, err := auth.GenerateToken(req.Username)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, LoginResponse{
+			Token:     token,
+			ExpiresIn: 3600,
 		})
 	})
 
@@ -235,32 +282,6 @@ func main() {
 		c.JSON(http.StatusOK, response)
 	})
 
-	// Create a new result
-	r.POST("/api/results", func(c *gin.Context) {
-		var req CreateResultRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		result, err := queries.CreateResult(context.Background(), db.CreateResultParams{
-			AthleteID: req.AthleteID,
-			MeetID:    req.MeetID,
-			Time:      req.Time,
-			Place:     req.Place,
-		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		id, _ := result.LastInsertId()
-		c.JSON(http.StatusCreated, gin.H{
-			"id":      id,
-			"message": "Result created successfully",
-		})
-	})
-
 	// Get top 10 fastest times
 	r.GET("/api/top-times", func(c *gin.Context) {
 		times, err := queries.GetTopTimes(context.Background())
@@ -310,195 +331,226 @@ func main() {
 		c.JSON(http.StatusOK, response)
 	})
 
-	// Create a new athlete
-	r.POST("/api/athletes", func(c *gin.Context) {
-		var req CreateAthleteRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+	// Protected routes - require authentication
+	protected := r.Group("/api")
+	protected.Use(auth.AuthMiddleware())
+	{
+		// Create a new athlete
+		protected.POST("/athletes", func(c *gin.Context) {
+			var req CreateAthleteRequest
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
 
-		result, err := queries.CreateAthlete(context.Background(), db.CreateAthleteParams{
-			Name:           req.Name,
-			Grade:          req.Grade,
-			PersonalRecord: sql.NullString{String: req.PersonalRecord, Valid: req.PersonalRecord != ""},
-			Events:         sql.NullString{String: req.Events, Valid: req.Events != ""},
+			result, err := queries.CreateAthlete(context.Background(), db.CreateAthleteParams{
+				Name:           req.Name,
+				Grade:          req.Grade,
+				PersonalRecord: sql.NullString{String: req.PersonalRecord, Valid: req.PersonalRecord != ""},
+				Events:         sql.NullString{String: req.Events, Valid: req.Events != ""},
+			})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			id, _ := result.LastInsertId()
+			c.JSON(http.StatusCreated, gin.H{"id": id, "message": "Athlete created successfully"})
 		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
 
-		id, _ := result.LastInsertId()
-		c.JSON(http.StatusCreated, gin.H{"id": id, "message": "Athlete created successfully"})
-	})
+		// Update an athlete
+		protected.PUT("/athletes/:id", func(c *gin.Context) {
+			id, err := strconv.Atoi(c.Param("id"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid athlete ID"})
+				return
+			}
 
-	// Update an athlete
-	r.PUT("/api/athletes/:id", func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid athlete ID"})
-			return
-		}
+			var req CreateAthleteRequest
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
 
-		var req CreateAthleteRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		err = queries.UpdateAthlete(context.Background(), db.UpdateAthleteParams{
-			ID:             int32(id),
-			Name:           req.Name,
-			Grade:          req.Grade,
-			PersonalRecord: sql.NullString{String: req.PersonalRecord, Valid: req.PersonalRecord != ""},
-			Events:         sql.NullString{String: req.Events, Valid: req.Events != ""},
+			err = queries.UpdateAthlete(context.Background(), db.UpdateAthleteParams{
+				ID:             int32(id),
+				Name:           req.Name,
+				Grade:          req.Grade,
+				PersonalRecord: sql.NullString{String: req.PersonalRecord, Valid: req.PersonalRecord != ""},
+				Events:         sql.NullString{String: req.Events, Valid: req.Events != ""},
+			})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "Athlete updated successfully"})
 		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Athlete updated successfully"})
-	})
 
-	// Delete an athlete
-	r.DELETE("/api/athletes/:id", func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid athlete ID"})
-			return
-		}
+		// Delete an athlete
+		protected.DELETE("/athletes/:id", func(c *gin.Context) {
+			id, err := strconv.Atoi(c.Param("id"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid athlete ID"})
+				return
+			}
 
-		err = queries.DeleteAthlete(context.Background(), int32(id))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Athlete deleted successfully"})
-	})
-
-	// Create a new meet
-	r.POST("/api/meets", func(c *gin.Context) {
-		var req CreateMeetRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		date, err := time.Parse("2006-01-02", req.Date)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format, use YYYY-MM-DD"})
-			return
-		}
-
-		result, err := queries.CreateMeet(context.Background(), db.CreateMeetParams{
-			Name:        req.Name,
-			Date:        date,
-			Location:    req.Location,
-			Description: sql.NullString{String: req.Description, Valid: req.Description != ""},
+			err = queries.DeleteAthlete(context.Background(), int32(id))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "Athlete deleted successfully"})
 		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
 
-		id, _ := result.LastInsertId()
-		c.JSON(http.StatusCreated, gin.H{"id": id, "message": "Meet created successfully"})
-	})
+		// Create a new meet
+		protected.POST("/meets", func(c *gin.Context) {
+			var req CreateMeetRequest
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
 
-	// Update a meet
-	r.PUT("/api/meets/:id", func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid meet ID"})
-			return
-		}
+			date, err := time.Parse("2006-01-02", req.Date)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format, use YYYY-MM-DD"})
+				return
+			}
 
-		var req CreateMeetRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+			result, err := queries.CreateMeet(context.Background(), db.CreateMeetParams{
+				Name:        req.Name,
+				Date:        date,
+				Location:    req.Location,
+				Description: sql.NullString{String: req.Description, Valid: req.Description != ""},
+			})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
 
-		date, err := time.Parse("2006-01-02", req.Date)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format, use YYYY-MM-DD"})
-			return
-		}
-
-		err = queries.UpdateMeet(context.Background(), db.UpdateMeetParams{
-			ID:          int32(id),
-			Name:        req.Name,
-			Date:        date,
-			Location:    req.Location,
-			Description: sql.NullString{String: req.Description, Valid: req.Description != ""},
+			id, _ := result.LastInsertId()
+			c.JSON(http.StatusCreated, gin.H{"id": id, "message": "Meet created successfully"})
 		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Meet updated successfully"})
-	})
 
-	// Delete a meet
-	r.DELETE("/api/meets/:id", func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid meet ID"})
-			return
-		}
+		// Update a meet
+		protected.PUT("/meets/:id", func(c *gin.Context) {
+			id, err := strconv.Atoi(c.Param("id"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid meet ID"})
+				return
+			}
 
-		err = queries.DeleteMeet(context.Background(), int32(id))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Meet deleted successfully"})
-	})
+			var req CreateMeetRequest
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
 
-	// Update a result
-	r.PUT("/api/results/:id", func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid result ID"})
-			return
-		}
+			date, err := time.Parse("2006-01-02", req.Date)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format, use YYYY-MM-DD"})
+				return
+			}
 
-		var req CreateResultRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		err = queries.UpdateResult(context.Background(), db.UpdateResultParams{
-			ID:        int32(id),
-			AthleteID: req.AthleteID,
-			MeetID:    req.MeetID,
-			Time:      req.Time,
-			Place:     req.Place,
+			err = queries.UpdateMeet(context.Background(), db.UpdateMeetParams{
+				ID:          int32(id),
+				Name:        req.Name,
+				Date:        date,
+				Location:    req.Location,
+				Description: sql.NullString{String: req.Description, Valid: req.Description != ""},
+			})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "Meet updated successfully"})
 		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Result updated successfully"})
-	})
 
-	// Delete a result
-	r.DELETE("/api/results/:id", func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid result ID"})
-			return
-		}
+		// Delete a meet
+		protected.DELETE("/meets/:id", func(c *gin.Context) {
+			id, err := strconv.Atoi(c.Param("id"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid meet ID"})
+				return
+			}
 
-		err = queries.DeleteResult(context.Background(), int32(id))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Result deleted successfully"})
-	})
+			err = queries.DeleteMeet(context.Background(), int32(id))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "Meet deleted successfully"})
+		})
+
+		// Create a new result
+		protected.POST("/results", func(c *gin.Context) {
+			var req CreateResultRequest
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+
+			result, err := queries.CreateResult(context.Background(), db.CreateResultParams{
+				AthleteID: req.AthleteID,
+				MeetID:    req.MeetID,
+				Time:      req.Time,
+				Place:     req.Place,
+			})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			id, _ := result.LastInsertId()
+			c.JSON(http.StatusCreated, gin.H{
+				"id":      id,
+				"message": "Result created successfully",
+			})
+		})
+
+		// Update a result
+		protected.PUT("/results/:id", func(c *gin.Context) {
+			id, err := strconv.Atoi(c.Param("id"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid result ID"})
+				return
+			}
+
+			var req CreateResultRequest
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+
+			err = queries.UpdateResult(context.Background(), db.UpdateResultParams{
+				ID:        int32(id),
+				AthleteID: req.AthleteID,
+				MeetID:    req.MeetID,
+				Time:      req.Time,
+				Place:     req.Place,
+			})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "Result updated successfully"})
+		})
+
+		// Delete a result
+		protected.DELETE("/results/:id", func(c *gin.Context) {
+			id, err := strconv.Atoi(c.Param("id"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid result ID"})
+				return
+			}
+
+			err = queries.DeleteResult(context.Background(), int32(id))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "Result deleted successfully"})
+		})
+	}
 
 	r.Run(":8080")
 }

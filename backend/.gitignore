@@ -1,0 +1,16 @@
+# Environment variables
+.env
+
+# Backup files
+*.backup
+
+# Go binaries
+server
+server-linux
+jones-xc-server
+jones-county-xc
+
+# Go build cache
+*.o
+*.a
+*.so

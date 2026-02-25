@@ -1,4 +1,6 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from './contexts/AuthContext'
+import { Button } from './components/ui/button'
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -9,6 +11,13 @@ const navLinks = [
 
 function NavLinks() {
   const location = useLocation()
+  const { isAuthenticated, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
 
   return (
     <div className="flex items-center gap-1" role="navigation" aria-label="Main menu">
@@ -30,6 +39,39 @@ function NavLinks() {
           </Link>
         )
       })}
+      {isAuthenticated ? (
+        <>
+          <Link
+            to="/admin"
+            className={`block px-4 py-2 rounded-lg transition-colors font-semibold focus:ring-2 focus:ring-[#16a34a] focus:ring-offset-2 focus:outline-none ${
+              location.pathname === '/admin'
+                ? 'bg-[#16a34a] text-white'
+                : 'text-gray-700 hover:bg-[#16a34a]/10 hover:text-[#16a34a]'
+            }`}
+          >
+            Admin
+          </Link>
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            size="sm"
+            className="ml-2"
+          >
+            Logout
+          </Button>
+        </>
+      ) : (
+        <Link
+          to="/login"
+          className={`block px-4 py-2 rounded-lg transition-colors font-semibold focus:ring-2 focus:ring-[#16a34a] focus:ring-offset-2 focus:outline-none ${
+            location.pathname === '/login'
+              ? 'bg-[#16a34a] text-white'
+              : 'text-gray-700 hover:bg-[#16a34a]/10 hover:text-[#16a34a]'
+          }`}
+        >
+          Login
+        </Link>
+      )}
     </div>
   )
 }
