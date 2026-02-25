@@ -34,13 +34,25 @@ jobs:
         run: |
           GOOS=linux GOARCH=amd64 go build -o server main.go
 
+      - name: Create .env file for backend
+        run: |
+          cat > backend/.env << EOF
+          ADMIN_USERNAME=${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          EOF
+
       - name: Deploy to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "frontend/dist/*,backend/server"
+          source: "frontend/dist/*,backend/server,backend/.env"
           target: "/tmp/deploy"
           strip_components: 1
 
@@ -53,18 +65,23 @@ jobs:
           script: |
             # Copy frontend files
             sudo rm -rf /var/www/jones-county-xc/frontend/*
+            sudo mkdir -p /var/www/jones-county-xc/frontend
             sudo cp -r /tmp/deploy/dist/* /var/www/jones-county-xc/frontend/
 
-            # Copy and restart backend
+            # Copy backend files
+            sudo mkdir -p /var/www/jones-county-xc/backend
             sudo cp /tmp/deploy/server /var/www/jones-county-xc/backend/
+            sudo cp /tmp/deploy/.env /var/www/jones-county-xc/backend/
             sudo chmod +x /var/www/jones-county-xc/backend/server
+            sudo chown -R ubuntu:ubuntu /var/www/jones-county-xc
 
             # Create systemd service if it doesn't exist
             if [ ! -f /etc/systemd/system/jones-county-xc.service ]; then
-              sudo tee /etc/systemd/system/jones-county-xc.service > /dev/null <<EOF
+              sudo tee /etc/systemd/system/jones-county-xc.service > /dev/null <<'EOFSERVICE'
             [Unit]
             Description=Jones County XC Backend
-            After=network.target
+            After=network.target mysql.service
+            Wants=mysql.service
 
             [Service]
             Type=simple
@@ -73,16 +90,23 @@ jobs:
             ExecStart=/var/www/jones-county-xc/backend/server
             Restart=always
             RestartSec=5
+            Environment="GIN_MODE=release"
 
             [Install]
             WantedBy=multi-user.target
-            EOF
+            EOFSERVICE
               sudo systemctl daemon-reload
               sudo systemctl enable jones-county-xc
             fi
 
             # Restart backend service
             sudo systemctl restart jones-county-xc
+
+            # Wait for service to start
+            sleep 2
+
+            # Check service status
+            sudo systemctl status jones-county-xc --no-pager || true
 
             # Clean up
             rm -rf /tmp/deploy
