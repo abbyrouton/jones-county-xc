@@ -173,6 +173,59 @@ func (q *Queries) GetAllMeets(ctx context.Context) ([]Meet, error) {
 	return items, nil
 }
 
+const getAllResults = `-- name: GetAllResults :many
+SELECT r.id, r.time, r.place, a.id AS athlete_id, a.name AS athlete_name, a.grade AS athlete_grade, m.id AS meet_id, m.name AS meet_name, m.date AS meet_date
+FROM results r
+JOIN athletes a ON r.athlete_id = a.id
+JOIN meets m ON r.meet_id = m.id
+ORDER BY m.date DESC, r.place ASC
+`
+
+type GetAllResultsRow struct {
+	ID           int32
+	Time         string
+	Place        int32
+	AthleteID    int32
+	AthleteName  string
+	AthleteGrade int32
+	MeetID       int32
+	MeetName     string
+	MeetDate     time.Time
+}
+
+func (q *Queries) GetAllResults(ctx context.Context) ([]GetAllResultsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllResults)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllResultsRow
+	for rows.Next() {
+		var i GetAllResultsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Time,
+			&i.Place,
+			&i.AthleteID,
+			&i.AthleteName,
+			&i.AthleteGrade,
+			&i.MeetID,
+			&i.MeetName,
+			&i.MeetDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAthleteByID = `-- name: GetAthleteByID :one
 SELECT id, name, grade, personal_record, events, created_at
 FROM athletes

@@ -38,6 +38,13 @@ JOIN meets m ON r.meet_id = m.id
 ORDER BY r.time ASC
 LIMIT 10;
 
+-- name: GetAllResults :many
+SELECT r.id, r.time, r.place, a.id AS athlete_id, a.name AS athlete_name, a.grade AS athlete_grade, m.id AS meet_id, m.name AS meet_name, m.date AS meet_date
+FROM results r
+JOIN athletes a ON r.athlete_id = a.id
+JOIN meets m ON r.meet_id = m.id
+ORDER BY m.date DESC, r.place ASC;
+
 -- name: CreateAthlete :execresult
 INSERT INTO athletes (name, grade, personal_record, events)
 VALUES (?, ?, ?, ?);

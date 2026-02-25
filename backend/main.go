@@ -84,6 +84,18 @@ type TopTimeResponse struct {
 	MeetDate    string `json:"meetDate"`
 }
 
+type AllResultResponse struct {
+	ID           int32  `json:"id"`
+	Time         string `json:"time"`
+	Place        int32  `json:"place"`
+	AthleteID    int32  `json:"athleteId"`
+	AthleteName  string `json:"athleteName"`
+	AthleteGrade int32  `json:"athleteGrade"`
+	MeetID       int32  `json:"meetId"`
+	MeetName     string `json:"meetName"`
+	MeetDate     string `json:"meetDate"`
+}
+
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -268,6 +280,31 @@ func main() {
 				MeetID:      t.MeetID,
 				MeetName:    t.MeetName,
 				MeetDate:    t.MeetDate.Format("2006-01-02"),
+			}
+		}
+		c.JSON(http.StatusOK, response)
+	})
+
+	// Get all results
+	r.GET("/api/results", func(c *gin.Context) {
+		results, err := queries.GetAllResults(context.Background())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		response := make([]AllResultResponse, len(results))
+		for i, r := range results {
+			response[i] = AllResultResponse{
+				ID:           r.ID,
+				Time:         r.Time,
+				Place:        r.Place,
+				AthleteID:    r.AthleteID,
+				AthleteName:  r.AthleteName,
+				AthleteGrade: r.AthleteGrade,
+				MeetID:       r.MeetID,
+				MeetName:     r.MeetName,
+				MeetDate:     r.MeetDate.Format("2006-01-02"),
 			}
 		}
 		c.JSON(http.StatusOK, response)
